@@ -48,11 +48,13 @@ def analytics(req: AnalyticsRequest):
         latencies = [r["latency_ms"] for r in records]
         uptimes = [r["uptime_pct"] for r in records]
         sorted_lat = sorted(latencies)
-        p95 = sorted_lat[min(int(len(sorted_lat) * 0.95), len(sorted_lat) - 1)]
+        idx = (len(sorted_lat) - 1) * 0.95
+        low, high = int(idx), min(int(idx) + 1, len(sorted_lat) - 1)
+        p95 = sorted_lat[low] + (sorted_lat[high] - sorted_lat[low]) * (idx - low)
         result[region] = {
             "avg_latency": round(statistics.mean(latencies), 4),
             "p95_latency": round(p95, 4),
-            "avg_uptime": round(statistics.mean(uptimes), 4),
+            "avg_uptime": round(statistics.mean(uptimes) / 100, 4),
             "breaches": sum(1 for l in latencies if l > req.threshold_ms),
         }
     return JSONResponse(
