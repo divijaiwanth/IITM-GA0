@@ -1,8 +1,9 @@
 import json
 import os
 import statistics
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List
 
@@ -11,17 +12,30 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["POST"],
+    allow_credentials=False,
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
-DATA_FILE = os.path.join(os.path.dirname(__file__), "..", "q-vercel-latency.json")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_FILE = os.path.join(BASE_DIR, "q-vercel-latency.json")
 with open(DATA_FILE) as f:
     RAW_DATA = json.load(f)
 
 class AnalyticsRequest(BaseModel):
     regions: List[str]
     threshold_ms: float
+
+@app.options("/analytics")
+def options_analytics():
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 @app.post("/analytics")
 def analytics(req: AnalyticsRequest):
@@ -41,4 +55,7 @@ def analytics(req: AnalyticsRequest):
             "avg_uptime": round(statistics.mean(uptimes), 4),
             "breaches": sum(1 for l in latencies if l > req.threshold_ms),
         }
-    return result
+    return JSONResponse(
+        content=result,
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
