@@ -1,9 +1,8 @@
 import json
 import os
 import statistics
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List
 
@@ -12,7 +11,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -26,17 +25,6 @@ class AnalyticsRequest(BaseModel):
     regions: List[str]
     threshold_ms: float
 
-@app.options("/analytics")
-def options_analytics():
-    return JSONResponse(
-        content={},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-        }
-    )
-
 @app.post("/analytics")
 def analytics(req: AnalyticsRequest):
     result = {}
@@ -47,17 +35,17 @@ def analytics(req: AnalyticsRequest):
             continue
         latencies = [r["latency_ms"] for r in records]
         uptimes = [r["uptime_pct"] for r in records]
+        
+        # Calculate 95th percentile
         sorted_lat = sorted(latencies)
         idx = (len(sorted_lat) - 1) * 0.95
         low, high = int(idx), min(int(idx) + 1, len(sorted_lat) - 1)
         p95 = sorted_lat[low] + (sorted_lat[high] - sorted_lat[low]) * (idx - low)
+        
         result[region] = {
             "avg_latency": round(statistics.mean(latencies), 4),
             "p95_latency": round(p95, 4),
-            "avg_uptime": round(statistics.mean(uptimes) / 100, 4),
+            "avg_uptime": round(statistics.mean(uptimes), 4),  # Removed / 100
             "breaches": sum(1 for l in latencies if l > req.threshold_ms),
         }
-    return JSONResponse(
-        content=result,
-        headers={"Access-Control-Allow-Origin": "*"}
-    )
+    return result
