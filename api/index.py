@@ -32,7 +32,7 @@ def analytics(req: AnalyticsRequest):
             result[region] = None
             continue
         latencies = [r["latency_ms"] for r in records]
-        uptimes = [r["uptime"] for r in records]
+        uptimes = [r["uptime_pct"] for r in records]
         sorted_lat = sorted(latencies)
         p95 = sorted_lat[min(int(len(sorted_lat) * 0.95), len(sorted_lat) - 1)]
         result[region] = {
